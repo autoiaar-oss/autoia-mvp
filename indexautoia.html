@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoia — Control Operativo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ─── TOKENS ─────────────────────────────────────────── */
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #111118;
+    --border:    #1e1e2e;
+    --border2:   #2a2a3e;
+    --text:      #e8e8f0;
+    --muted:     #5a5a7a;
+    --accent:    #00e5a0;
+    --accent2:   #7b61ff;
+    --warn:      #ff6b4a;
+    --gold:      #f5c842;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius:    12px;
+    --radius-lg: 20px;
+  }
+
+  /* ─── RESET ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ──────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── LAYOUT ─────────────────────────────────────────── */
+  .app { position: relative; z-index: 1; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.8);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .local-badge {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .local-badge span { color: var(--text); font-weight: 500; }
+
+  main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+  /* ─── SECTION HEADER ─────────────────────────────────── */
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .section-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ─── UPLOAD ZONE ────────────────────────────────────── */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .upload-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .upload-card:hover { border-color: var(--border2); background: #13131f; }
+  .upload-card:hover::before { opacity: 1; }
+  .upload-card.dragover { border-color: var(--accent); background: rgba(0,229,160,0.04); }
+  .upload-card.loaded { border-color: rgba(0,229,160,0.4); }
+  .upload-card.loaded::before { opacity: 1; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+
+  .upload-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+  .upload-icon.peya  { background: rgba(255,107,74,0.12); }
+  .upload-icon.think { background: rgba(123,97,255,0.12); }
+  .upload-icon.maxi  { background: rgba(245,200,66,0.12); }
+  .upload-icon.fudo  { background: rgba(0,229,160,0.12); }
+
+  .upload-name {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .upload-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+  .upload-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--border);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .upload-btn:hover { background: var(--border2); border-color: var(--muted); }
+  .upload-btn.success { background: rgba(0,229,160,0.1); border-color: var(--accent); color: var(--accent); }
+
+  input[type="file"] { display: none; }
+
+  .upload-status {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 16px;
+  }
+  .upload-status.ok  { color: var(--accent); }
+  .upload-status.err { color: var(--warn); }
+
+  /* ─── PROCESO BTN ────────────────────────────────────── */
+  .process-bar {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+  }
+  .process-info { flex: 1; }
+  .process-info strong {
+    font-family: var(--font-head);
+    font-size: 15px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .process-info span { font-size: 12px; color: var(--muted); }
+
+  .btn-process {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-process:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
+  .btn-process:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-process.loading { opacity: 0.7; }
+
+  /* ─── DASHBOARD ──────────────────────────────────────── */
+  #dashboard { display: none; }
+  #dashboard.visible { display: block; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease both;
+  }
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+  .kpi-card.green::after  { background: var(--accent); }
+  .kpi-card.purple::after { background: var(--accent2); }
+  .kpi-card.warn::after   { background: var(--warn); }
+  .kpi-card.gold::after   { background: var(--gold); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .kpi-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .kpi-card.green  .kpi-value { color: var(--accent); }
+  .kpi-card.purple .kpi-value { color: var(--accent2); }
+  .kpi-card.warn   .kpi-value { color: var(--warn); }
+  .kpi-card.gold   .kpi-value { color: var(--gold); }
+
+  .kpi-sub { font-size: 11px; color: var(--muted); }
+
+  /* ─── TABLES ─────────────────────────────────────────── */
+  .data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .data-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .data-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .data-card-title {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .data-card-count {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+  }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    padding: 10px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+  }
+  .data-table td {
+    padding: 10px 20px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .td-product { color: var(--text); font-weight: 500; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .td-qty     { color: var(--muted); text-align: right; }
+  .td-amount  { color: var(--accent); text-align: right; font-weight: 500; font-family: var(--font-mono); }
+  .td-cmv     { text-align: right; font-weight: 600; }
+  .td-cmv.ok   { color: var(--accent); }
+  .td-cmv.warn { color: var(--gold); }
+  .td-cmv.bad  { color: var(--warn); }
+
+  /* ─── ALERTAS ────────────────────────────────────────── */
+  .alerts-section { margin-bottom: 24px; animation: fadeUp 0.6s ease both; }
+  .alert-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+  .alert-item.critical { border-left: 3px solid var(--warn); }
+  .alert-item.warning  { border-left: 3px solid var(--gold); }
+  .alert-item.info     { border-left: 3px solid var(--accent2); }
+  .alert-icon { font-size: 16px; margin-top: 1px; }
+  .alert-text strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .alert-text span { font-size: 11px; color: var(--muted); }
+
+  /* ─── EMPTY / ERROR STATES ───────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* ─── TOAST ──────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-size: 13px;
+    z-index: 999;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 320px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.ok   { border-color: var(--accent); color: var(--accent); }
+  #toast.err  { border-color: var(--warn); color: var(--warn); }
+
+  /* ─── SEPARATOR ──────────────────────────────────────── */
+  .sep { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  /* ─── RESPONSIVE ─────────────────────────────────────── */
+  @media (max-width: 768px) {
+    main { padding: 16px; }
+    .upload-grid { grid-template-columns: 1fr; }
+    .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
+    .data-grid   { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      AUTOIA
+    </div>
+    <div class="header-right">
+      <div class="local-badge">Local: <span id="localNombre">—</span></div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- UPLOAD SOURCES -->
+    <div class="section-header">
+      <span class="section-tag">01</span>
+      <span class="section-title">Cargar Archivos</span>
+    </div>
+
+    <div class="upload-grid">
+
+      <!-- PEDIDOS YA -->
+      <div class="upload-card" id="card-peya"
+           ondragover="handleDragOver(event,'peya')"
+           ondragleave="handleDragLeave(event,'peya')"
+           ondrop="handleDrop(event,'peya')">
+        <div class="upload-icon peya">🛵</div>
+        <div class="upload-name">PedidosYa</div>
+        <div class="upload-sub">Reporte de ventas · XLSX / CSV</div>
+        <label>
+          <input type="file" id="file-peya" accept=".xlsx,.xls,.csv" onchange="handleFile(event,'peya')">
+          <div class="upload-btn" id="btn-peya">
+            <span>📂</span> Seleccionar archivo
+          </div>
+        </label>
+        <div class="upload-status" id="status-peya">Sin archivo cargado</div>
+      </div>
+
+      <!-- THINKION -->
+      <div class="upload-card" id="card-think"
+           ondragover="handleDragOver(event,'think')"
+           ondragleave="handleDragLeave(event,'think')"
+           ondrop="handleDrop(event,'think')">
+        <div class="upload-icon think">🖥️</div>
+        <div class="upload-name">Thinkion</div>
+        <div class="upload-sub">Ventas por producto · XLSX / XLS / HTML</div>
+        <label>
+          <input type="file" id="file-think" accept=".xlsx,.xls,.html,.htm,.csv" onchange="handleFile(event,'think')">
+          <div class="upload-btn" id="btn-think">
+            <span>📂</span> Seleccionar archivo
+          </div>
+        </label>
+        <div class="upload-status" id="status-think">Sin archivo cargado</div>
+      </div>
+
+      <!-- MAXIREST -->
+      <div class="upload-card" id="card-maxi"
+           ondragover="handleDragOver(event,'maxi')"
+           ondragleave="handleDragLeave(event,'maxi')"
+           ondrop="handleDrop(event,'maxi')">
+        <div class="upload-icon maxi">🍽️</div>
+        <div class="upload-name">Maxirest</div>
+        <div class="upload-sub">Ventas y stock · XLSX / CSV</div>
+        <label>
+          <input type="file" id="file-maxi" accept=".xlsx,.xls,.csv" onchange="handleFile(event,'maxi')">
+          <div class="upload-btn" id="btn-maxi">
+            <span>📂</span> Seleccionar archivo
+          </div>
+        </label>
+        <div class="upload-status" id="status-maxi">Sin archivo cargado</div>
+      </div>
+
+      <!-- FUDO -->
+      <div class="upload-card" id="card-fudo"
+           ondragover="handleDragOver(event,'fudo')"
+           ondragleave="handleDragLeave(event,'fudo')"
+           ondrop="handleDrop(event,'fudo')">
+        <div class="upload-icon fudo">⚡</div>
+        <div class="upload-name">Fudo</div>
+        <div class="upload-sub">Ventas y movimientos · XLSX / CSV</div>
+        <label>
+          <input type="file" id="file-fudo" accept=".xlsx,.xls,.csv" onchange="handleFile(event,'fudo')">
+          <div class="upload-btn" id="btn-fudo">
+            <span>📂</span> Seleccionar archivo
+          </div>
+        </label>
+        <div class="upload-status" id="status-fudo">Sin archivo cargado</div>
+      </div>
+
+    </div>
+
+    <!-- PROCESS BAR -->
+    <div class="process-bar">
+      <div class="process-info">
+        <strong id="processTitle">Listo para procesar</strong>
+        <span id="processSubtitle">Cargá al menos un archivo para continuar</span>
+      </div>
+      <button class="btn-process" id="btnProcesar" onclick="procesarTodo()" disabled>
+        Procesar →
+      </button>
+    </div>
+
+    <hr class="sep">
+
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+
+      <div class="section-header">
+        <span class="section-tag">02</span>
+        <span class="section-title">Dashboard Operativo</span>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- ALERTAS -->
+      <div class="alerts-section" id="alertsSection"></div>
+
+      <!-- TABLAS -->
+      <div class="data-grid">
+        <div class="data-card">
+          <div class="data-card-header">
+            <span class="data-card-title">Top Productos · PeYa</span>
+            <span class="data-card-count" id="countPeya">—</span>
+          </div>
+          <div id="tablePeya"><div class="empty-state">Sin datos cargados</div></div>
+        </div>
+        <div class="data-card">
+          <div class="data-card-header">
+            <span class="data-card-title">Ventas · Thinkion</span>
+            <span class="data-card-count" id="countThink">—</span>
+          </div>
+          <div id="tableThink"><div class="empty-state">Sin datos cargados</div></div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG — reemplazá con tu Apps Script Web App URL
+// ═══════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = 'TU_APPS_SCRIPT_URL_AQUI';
+const NOMBRE_LOCAL    = 'Sensei Sushi'; // nombre del local
+
+// ═══════════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════
+const archivos = { peya: null, think: null, maxi: null, fudo: null };
+const datos    = { peya: [], think: [], maxi: [], fudo: [] };
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+document.getElementById('localNombre').textContent = NOMBRE_LOCAL;
+
+// ═══════════════════════════════════════════════════════
+//  DRAG & DROP
+// ═══════════════════════════════════════════════════════
+function handleDragOver(e, tipo) {
+  e.preventDefault();
+  document.getElementById('card-' + tipo).classList.add('dragover');
+}
+function handleDragLeave(e, tipo) {
+  document.getElementById('card-' + tipo).classList.remove('dragover');
+}
+function handleDrop(e, tipo) {
+  e.preventDefault();
+  document.getElementById('card-' + tipo).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) procesarArchivo(file, tipo);
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE INPUT
+// ═══════════════════════════════════════════════════════
+function handleFile(e, tipo) {
+  const file = e.target.files[0];
+  if (file) procesarArchivo(file, tipo);
+}
+
+async function procesarArchivo(file, tipo) {
+  const statusEl = document.getElementById('status-' + tipo);
+  const cardEl   = document.getElementById('card-' + tipo);
+  const btnEl    = document.getElementById('btn-' + tipo);
+
+  statusEl.textContent = '⏳ Leyendo...';
+  statusEl.className   = 'upload-status';
+
+  try {
+    const rows = await leerArchivo(file, tipo);
+    archivos[tipo] = file;
+    datos[tipo]    = rows;
+
+    statusEl.textContent = `✓ ${rows.length} filas · ${file.name}`;
+    statusEl.className   = 'upload-status ok';
+    cardEl.classList.add('loaded');
+    btnEl.className      = 'upload-btn success';
+    btnEl.innerHTML      = '<span>✓</span> Cargado';
+
+    actualizarBotonProcesar();
+  } catch (err) {
+    statusEl.textContent = '✗ Error: ' + err.message;
+    statusEl.className   = 'upload-status err';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  LEER ARCHIVO (XLSX / CSV / HTML-XLS)
+// ═══════════════════════════════════════════════════════
+async function leerArchivo(file, tipo) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = e.target.result;
+        let wb;
+
+        // Thinkion puede venir como HTML disfrazado de XLS
+        if (tipo === 'think' && (file.name.endsWith('.xls') || file.name.endsWith('.htm') || file.name.endsWith('.html'))) {
+          const text = new TextDecoder().decode(new Uint8Array(data));
+          if (text.trim().startsWith('<') || text.includes('<html') || text.includes('<table')) {
+            wb = XLSX.read(text, { type: 'string' });
+          } else {
+            wb = XLSX.read(data, { type: 'array' });
+          }
+        } else {
+          wb = XLSX.read(data, { type: 'array' });
+        }
+
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        resolve(rows);
+      } catch (err) {
+        reject(new Error('No se pudo leer el archivo (' + err.message + ')'));
+      }
+    };
+
+    reader.onerror = () => reject(new Error('Error de lectura'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  ACTUALIZAR BOTÓN PROCESAR
+// ═══════════════════════════════════════════════════════
+function actualizarBotonProcesar() {
+  const cargados = Object.values(archivos).filter(Boolean).length;
+  const btn      = document.getElementById('btnProcesar');
+  const title    = document.getElementById('processTitle');
+  const sub      = document.getElementById('processSubtitle');
+
+  if (cargados === 0) {
+    btn.disabled   = true;
+    title.textContent = 'Listo para procesar';
+    sub.textContent   = 'Cargá al menos un archivo para continuar';
+  } else {
+    btn.disabled   = false;
+    const nombres  = ['peya','think','maxi','fudo']
+      .filter(t => archivos[t])
+      .map(t => ({ peya:'PedidosYa', think:'Thinkion', maxi:'Maxirest', fudo:'Fudo' }[t]));
+    title.textContent = `${cargados} fuente${cargados > 1 ? 's' : ''} lista${cargados > 1 ? 's' : ''}`;
+    sub.textContent   = nombres.join(' · ');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  PROCESAR TODO
+// ═══════════════════════════════════════════════════════
+async function procesarTodo() {
+  const btn = document.getElementById('btnProcesar');
+  btn.disabled   = true;
+  btn.textContent = '⏳ Procesando...';
+  btn.classList.add('loading');
+
+  try {
+    // Análisis local (sin necesidad del Apps Script para el dashboard)
+    const stats = calcularStats();
+
+    // Mostrar dashboard
+    mostrarDashboard(stats);
+
+    // Intentar guardar en Apps Script (opcional, no bloquea si falla)
+    if (APPS_SCRIPT_URL !== 'TU_APPS_SCRIPT_URL_AQUI') {
+      try {
+        await guardarEnSheets(stats);
+        showToast('✓ Datos guardados en Google Sheets', 'ok');
+      } catch (e) {
+        showToast('Dashboard listo · Sheets no disponible', 'err');
+      }
+    } else {
+      showToast('✓ Dashboard generado correctamente', 'ok');
+    }
+
+  } catch (err) {
+    showToast('Error: ' + err.message, 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Procesar →';
+    btn.classList.remove('loading');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  CALCULAR STATS
+// ═══════════════════════════════════════════════════════
+function calcularStats() {
+  const stats = {
+    totalVentasPeya:   0,
+    totalPedidosPeya:  0,
+    totalVentasThink:  0,
+    ticketPromedio:    0,
+    productosPeya:     [],
+    productosThink:    [],
+    alertas:           [],
+    cmvPromedio:       null,
+  };
+
+  // ── PedidosYa ──────────────────────────────────────────
+  if (datos.peya.length > 0) {
+    const sample = datos.peya[0];
+    const keys   = Object.keys(sample).map(k => k.toLowerCase().trim());
+
+    // Detectar columnas flexiblemente
+    const colMonto    = detectarColumna(datos.peya, ['total','monto','importe','precio','venta','amount','revenue']);
+    const colProducto = detectarColumna(datos.peya, ['producto','product','item','nombre','descripcion','articulo','name']);
+    const colCantidad = detectarColumna(datos.peya, ['cantidad','qty','quantity','cant','pedidos','orders']);
+
+    // Calcular totales
+    const porProducto = {};
+    datos.peya.forEach(row => {
+      const monto = parseMonto(row[colMonto]);
+      const prod  = colProducto ? String(row[colProducto] || 'Sin nombre').trim() : 'Producto';
+      const cant  = colCantidad ? parseInt(row[colCantidad]) || 1 : 1;
+
+      stats.totalVentasPeya  += monto;
+      stats.totalPedidosPeya += cant;
+
+      if (prod && prod !== 'Sin nombre') {
+        if (!porProducto[prod]) porProducto[prod] = { monto: 0, cant: 0 };
+        porProducto[prod].monto += monto;
+        porProducto[prod].cant  += cant;
+      }
+    });
+
+    // Top 8 productos
+    stats.productosPeya = Object.entries(porProducto)
+      .sort((a, b) => b[1].monto - a[1].monto)
+      .slice(0, 8)
+      .map(([nombre, v]) => ({ nombre, monto: v.monto, cant: v.cant }));
+
+    if (stats.totalPedidosPeya > 0)
+      stats.ticketPromedio = stats.totalVentasPeya / stats.totalPedidosPeya;
+
+    // Alerta ticket bajo
+    if (stats.ticketPromedio > 0 && stats.ticketPromedio < 2000)
+      stats.alertas.push({ tipo: 'warning', texto: 'Ticket promedio bajo', sub: `$${fmt(stats.ticketPromedio)} · Revisá combos y precios en PeYa` });
+  }
+
+  // ── Thinkion ───────────────────────────────────────────
+  if (datos.think.length > 0) {
+    const colMonto    = detectarColumna(datos.think, ['total','monto','importe','precio','venta','amount','subtotal','neto']);
+    const colProducto = detectarColumna(datos.think, ['producto','product','item','nombre','descripcion','articulo','name']);
+    const colCantidad = detectarColumna(datos.think, ['cantidad','qty','quantity','cant']);
+    const colCMV      = detectarColumna(datos.think, ['costo','cmv','cost','costo_total','food_cost']);
+
+    const porProducto = {};
+    let totalCosto = 0, totalVenta = 0;
+
+    datos.think.forEach(row => {
+      const monto = parseMonto(row[colMonto]);
+      const prod  = colProducto ? String(row[colProducto] || 'Sin nombre').trim() : 'Producto';
+      const cant  = colCantidad ? parseInt(row[colCantidad]) || 1 : 1;
+      const costo = colCMV ? parseMonto(row[colCMV]) : 0;
+
+      stats.totalVentasThink += monto;
+      totalVenta += monto;
+      totalCosto += costo;
+
+      if (prod && prod !== 'Sin nombre') {
+        if (!porProducto[prod]) porProducto[prod] = { monto: 0, cant: 0, costo: 0 };
+        porProducto[prod].monto += monto;
+        porProducto[prod].cant  += cant;
+        porProducto[prod].costo += costo;
+      }
+    });
+
+    if (totalCosto > 0 && totalVenta > 0) {
+      stats.cmvPromedio = (totalCosto / totalVenta) * 100;
+      if (stats.cmvPromedio > 35)
+        stats.alertas.push({ tipo: 'critical', texto: `CMV elevado: ${stats.cmvPromedio.toFixed(1)}%`, sub: `Límite saludable: 28–35% · Revisá costos de insumos` });
+      else if (stats.cmvPromedio > 30)
+        stats.alertas.push({ tipo: 'warning', texto: `CMV en zona de atención: ${stats.cmvPromedio.toFixed(1)}%`, sub: `Límite ideal: 28–30% · Monitorear` });
+    }
+
+    stats.productosThink = Object.entries(porProducto)
+      .sort((a, b) => b[1].monto - a[1].monto)
+      .slice(0, 8)
+      .map(([nombre, v]) => ({
+        nombre,
+        monto: v.monto,
+        cant:  v.cant,
+        cmv:   v.costo > 0 && v.monto > 0 ? (v.costo / v.monto * 100) : null,
+      }));
+  }
+
+  // Alerta sin datos
+  if (datos.peya.length === 0 && datos.think.length === 0)
+    stats.alertas.push({ tipo: 'info', texto: 'Solo datos parciales', sub: 'Cargá más fuentes para un análisis completo' });
+
+  return stats;
+}
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS DE PARSING
+// ═══════════════════════════════════════════════════════
+function detectarColumna(rows, candidatos) {
+  if (!rows.length) return null;
+  const keys = Object.keys(rows[0]);
+  for (const cand of candidatos) {
+    const found = keys.find(k => k.toLowerCase().trim().includes(cand.toLowerCase()));
+    if (found) return found;
+  }
+  return null;
+}
+
+function parseMonto(val) {
+  if (!val && val !== 0) return 0;
+  if (typeof val === 'number') return val;
+  const str = String(val).replace(/[^\d.,\-]/g, '').replace(',', '.');
+  return parseFloat(str) || 0;
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n);
+}
+function fmtPeso(n) { return '$' + fmt(n); }
+
+// ═══════════════════════════════════════════════════════
+//  MOSTRAR DASHBOARD
+// ═══════════════════════════════════════════════════════
+function mostrarDashboard(stats) {
+  const dash = document.getElementById('dashboard');
+  dash.classList.add('visible');
+  dash.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // KPIs
+  const totalVentas = stats.totalVentasPeya + stats.totalVentasThink;
+  const kpis = [
+    { label: 'Ventas Totales',    value: fmtPeso(totalVentas),        sub: 'Todos los canales',           color: 'green'  },
+    { label: 'Ventas PedidosYa',  value: fmtPeso(stats.totalVentasPeya), sub: `${fmt(stats.totalPedidosPeya)} pedidos`, color: 'purple' },
+    { label: 'Ticket Promedio',   value: stats.ticketPromedio > 0 ? fmtPeso(stats.ticketPromedio) : '—', sub: 'PedidosYa', color: 'gold' },
+    { label: 'CMV',               value: stats.cmvPromedio != null ? stats.cmvPromedio.toFixed(1) + '%' : '—', sub: stats.cmvPromedio > 35 ? '⚠ Elevado' : stats.cmvPromedio > 30 ? '· Atención' : stats.cmvPromedio != null ? '· Saludable' : 'Sin datos de costo', color: stats.cmvPromedio > 35 ? 'warn' : stats.cmvPromedio > 30 ? 'gold' : 'green' },
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
+
+  // Alertas
+  const alertsEl = document.getElementById('alertsSection');
+  if (stats.alertas.length > 0) {
+    const iconos = { critical: '🔴', warning: '🟡', info: '🔵' };
+    alertsEl.innerHTML = `
+      <div class="section-header" style="margin-bottom:12px;">
+        <span class="section-tag" style="background:rgba(255,107,74,0.1);border-color:rgba(255,107,74,0.3);color:var(--warn)">ALERTAS</span>
+        <span class="section-title" style="font-size:15px;">Puntos de atención</span>
+      </div>
+      ${stats.alertas.map(a => `
+        <div class="alert-item ${a.tipo}">
+          <div class="alert-icon">${iconos[a.tipo]}</div>
+          <div class="alert-text">
+            <strong>${a.texto}</strong>
+            <span>${a.sub}</span>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  } else {
+    alertsEl.innerHTML = '';
+  }
+
+  // Tabla PeYa
+  if (stats.productosPeya.length > 0) {
+    document.getElementById('countPeya').textContent = stats.productosPeya.length + ' productos';
+    document.getElementById('tablePeya').innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>Producto</th>
+          <th style="text-align:right">Cant</th>
+          <th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>
+          ${stats.productosPeya.map(p => `
+            <tr>
+              <td class="td-product" title="${p.nombre}">${p.nombre}</td>
+              <td class="td-qty">${fmt(p.cant)}</td>
+              <td class="td-amount">${fmtPeso(p.monto)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // Tabla Thinkion
+  if (stats.productosThink.length > 0) {
+    document.getElementById('countThink').textContent = stats.productosThink.length + ' productos';
+    document.getElementById('tableThink').innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>Producto</th>
+          <th style="text-align:right">Cant</th>
+          <th style="text-align:right">CMV</th>
+        </tr></thead>
+        <tbody>
+          ${stats.productosThink.map(p => {
+            const cmvClass = p.cmv == null ? '' : p.cmv > 35 ? 'bad' : p.cmv > 30 ? 'warn' : 'ok';
+            return `
+              <tr>
+                <td class="td-product" title="${p.nombre}">${p.nombre}</td>
+                <td class="td-qty">${fmt(p.cant)}</td>
+                <td class="td-cmv ${cmvClass}">${p.cmv != null ? p.cmv.toFixed(1) + '%' : '—'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  GUARDAR EN APPS SCRIPT / GOOGLE SHEETS
+// ═══════════════════════════════════════════════════════
+async function guardarEnSheets(stats) {
+  const payload = {
+    local:         NOMBRE_LOCAL,
+    timestamp:     new Date().toISOString(),
+    totalVentas:   stats.totalVentasPeya + stats.totalVentasThink,
+    ventasPeya:    stats.totalVentasPeya,
+    pedidosPeya:   stats.totalPedidosPeya,
+    ventasThink:   stats.totalVentasThink,
+    ticketPromedio: stats.ticketPromedio,
+    cmv:           stats.cmvPromedio,
+    productosPeya:  stats.productosPeya,
+    productosThink: stats.productosThink,
+  };
+
+  const resp = await fetch(APPS_SCRIPT_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload),
+  });
+
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return await resp.json();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, tipo = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = 'show ' + tipo;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+</script>
+</body>
+</html>
