@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoia · Panel de Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0a;--bg2:#111;--bg3:#161616;--bg4:#1c1c1c;
+  --border:#2a2a2a;--border2:#333;
+  --amber:#f59e0b;--amber2:#fbbf24;--amber3:#fde68a;
+  --text:#f0ede8;--text2:#a09d98;--text3:#6b6865;
+  --red:#ef4444;--green:#22c55e;--blue:#3b82f6;
+  --font-mono:'Space Mono',monospace;
+  --font-body:'DM Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow-x:hidden}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100}
+.logo{font-family:var(--font-mono);font-size:18px;letter-spacing:2px;color:var(--amber)}
+.logo span{color:var(--text3)}
+.nav-back{display:none;align-items:center;gap:8px;background:transparent;border:1px solid var(--border2);color:var(--text2);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:var(--font-body);font-size:13px;transition:all .2s}
+.nav-back:hover{border-color:var(--amber);color:var(--amber)}
+.nav-back.visible{display:flex}
+.nav-status{font-family:var(--font-mono);font-size:11px;color:var(--text3);letter-spacing:1px}
+
+/* HOME */
+#home{padding:0}
+.hero{padding:56px 28px 40px;border-bottom:1px solid var(--border)}
+.hero-label{font-family:var(--font-mono);font-size:11px;letter-spacing:3px;color:var(--amber);margin-bottom:16px}
+.hero-title{font-size:38px;font-weight:300;line-height:1.1;margin-bottom:8px;letter-spacing:-1px}
+.hero-title b{font-weight:600}
+.hero-sub{color:var(--text2);font-size:15px;max-width:480px;line-height:1.6}
+
+/* MODULE GRID */
+.modules-section{padding:32px 28px}
+.section-label{font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--text3);margin-bottom:20px}
+.module-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.module-card{background:var(--bg2);padding:24px;cursor:pointer;transition:background .15s;position:relative;overflow:hidden}
+.module-card:hover{background:var(--bg3)}
+.module-card:hover .mod-arrow{opacity:1;transform:translateX(0)}
+.module-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--border2);transition:background .15s}
+.module-card:hover::before{background:var(--amber)}
+.mod-icon{font-size:22px;color:var(--amber);margin-bottom:14px}
+.mod-name{font-size:15px;font-weight:500;margin-bottom:6px}
+.mod-desc{font-size:12px;color:var(--text3);line-height:1.5}
+.mod-tag{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--text3);border:1px solid var(--border2);padding:2px 8px;border-radius:3px}
+.mod-arrow{position:absolute;top:20px;right:20px;font-size:16px;color:var(--amber);opacity:0;transform:translateX(-6px);transition:all .2s}
+.mod-required::after{content:'MVP';position:absolute;top:12px;right:12px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);padding:2px 7px;border-radius:3px}
+
+/* UPLOAD SCREEN */
+#upload-screen{display:none;min-height:calc(100vh - 57px)}
+.upload-header{padding:40px 28px 28px;border-bottom:1px solid var(--border)}
+.upload-module-badge{display:inline-block;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);padding:4px 12px;border-radius:4px;margin-bottom:12px}
+.upload-title{font-size:26px;font-weight:500;margin-bottom:6px}
+.upload-sub{font-size:13px;color:var(--text2)}
+.upload-body{padding:32px 28px;display:flex;flex-direction:column;gap:24px;max-width:680px}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:10px;padding:40px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--amber);background:rgba(245,158,11,.04)}
+.upload-zone-icon{font-size:32px;color:var(--text3);margin-bottom:12px}
+.upload-zone-label{font-size:14px;font-weight:500;margin-bottom:4px}
+.upload-zone-hint{font-size:12px;color:var(--text3)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-types{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;justify-content:center}
+.type-badge{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;padding:3px 10px;border-radius:3px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3)}
+.file-list{display:flex;flex-direction:column;gap:8px}
+.file-item{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.file-item-icon{font-size:18px;color:var(--amber)}
+.file-item-name{font-size:13px;font-weight:500;flex:1}
+.file-item-size{font-family:var(--font-mono);font-size:11px;color:var(--text3)}
+.file-item-remove{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:2px;transition:color .15s;display:flex;align-items:center}
+.file-item-remove:hover{color:var(--red)}
+.manual-entry{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px}
+.manual-title{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--text2)}
+.manual-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:11px;color:var(--text3);font-family:var(--font-mono);letter-spacing:1px}
+.form-input{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none;transition:border .15s}
+.form-input:focus{border-color:var(--amber)}
+.form-input::placeholder{color:var(--text3)}
+.btn-process{background:var(--amber);color:#000;border:none;padding:13px 28px;border-radius:7px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.3px}
+.btn-process:hover{background:var(--amber2)}
+.btn-process:disabled{background:var(--border2);color:var(--text3);cursor:not-allowed}
+.btn-secondary{background:transparent;color:var(--amber);border:1px solid rgba(245,158,11,.4);padding:10px 20px;border-radius:7px;font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;margin-top:16px}
+.btn-secondary:hover{background:rgba(245,158,11,.08)}
+.or-divider{display:flex;align-items:center;gap:12px;color:var(--text3);font-size:12px;font-family:var(--font-mono);letter-spacing:1px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* DASHBOARD */
+#dashboard-screen{display:none;min-height:calc(100vh - 57px)}
+.dash-header{padding:28px 28px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between}
+.dash-module-badge{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);padding:4px 12px;border-radius:4px;display:inline-block;margin-bottom:6px}
+.dash-title{font-size:20px;font-weight:500}
+.dash-date{font-family:var(--font-mono);font-size:11px;color:var(--text3);text-align:right;line-height:1.6}
+.dash-body{padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+
+/* METRICS */
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px}
+.metric-label{font-size:10px;color:var(--text3);margin-bottom:8px;font-family:var(--font-mono);letter-spacing:.5px}
+.metric-value{font-size:24px;font-weight:600;font-family:var(--font-mono);letter-spacing:-1px}
+.metric-change{font-size:11px;margin-top:4px}
+.metric-change.up{color:var(--green)}
+.metric-change.down{color:var(--red)}
+
+/* CHART PANEL */
+.chart-panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.chart-title{font-size:12px;font-weight:500;color:var(--text2);font-family:var(--font-mono);letter-spacing:1px}
+.chart-tabs{display:flex;gap:4px}
+.chart-tab{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--font-mono);transition:all .15s}
+.chart-tab.active{background:var(--amber);border-color:var(--amber);color:#000}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;padding:8px 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text3);border-bottom:1px solid var(--border);font-weight:400}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg3);color:var(--text)}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-family:var(--font-mono)}
+.badge-green{background:rgba(34,197,94,.1);color:#22c55e}
+.badge-red{background:rgba(239,68,68,.1);color:#ef4444}
+.badge-amber{background:rgba(245,158,11,.1);color:#f59e0b}
+
+/* STOCK BARS */
+.stock-row{display:grid;grid-template-columns:200px 1fr 80px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.stock-row:last-child{border-bottom:none}
+.stock-name{font-size:13px;color:var(--text)}
+.stock-bar-wrap{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.stock-bar{height:100%;border-radius:3px;transition:width .8s ease}
+.stock-meta{font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--font-mono)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--amber);color:var(--text);padding:12px 20px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease forwards}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">AUTO<span>IA</span></div>
+  <button class="nav-back" id="nav-back" onclick="goBack()">
+    <i class="ti ti-arrow-left"></i> Volver
+  </button>
+  <div class="nav-status" id="nav-status">SISTEMA OPERATIVO</div>
+</nav>
+
+<!-- HOME -->
+<div id="home" class="fade-in">
+  <div class="hero">
+    <div class="hero-label">PANEL DE CONTROL · GASTRONOMÍA</div>
+    <h1 class="hero-title">Tu operación,<br><b>en tiempo real.</b></h1>
+    <p class="hero-sub">Cargá datos de cada plataforma y visualizá ventas, stock, compras y métricas de delivery en un solo lugar.</p>
+  </div>
+  <div class="modules-section">
+    <div class="section-label">MÓDULOS DISPONIBLES</div>
+    <div class="module-grid">
+      <div class="module-card mod-required" onclick="openModule('pedidosya')">
+        <i class="ti ti-motorbike mod-icon"></i>
+        <div class="mod-name">PedidosYa</div>
+        <div class="mod-desc">Ventas, demoras, tiempos de preparación y métricas de delivery</div>
+        <div class="mod-tag">PEDIDOS YA</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+      <div class="module-card mod-required" onclick="openModule('thinkion')">
+        <i class="ti ti-building-store mod-icon"></i>
+        <div class="mod-name">Thinkion</div>
+        <div class="mod-desc">Ventas por producto, categorías y facturación del POS</div>
+        <div class="mod-tag">POS</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+      <div class="module-card" onclick="openModule('fudo')">
+        <i class="ti ti-layout-dashboard mod-icon"></i>
+        <div class="mod-name">Fudo</div>
+        <div class="mod-desc">Reportes de Fudo: ventas, mesas y facturación</div>
+        <div class="mod-tag">POS</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+      <div class="module-card" onclick="openModule('maxirest')">
+        <i class="ti ti-clipboard-list mod-icon"></i>
+        <div class="mod-name">Maxirest</div>
+        <div class="mod-desc">Importá reportes de Maxirest para análisis integrado</div>
+        <div class="mod-tag">POS</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+      <div class="module-card mod-required" onclick="openModule('stock')">
+        <i class="ti ti-stack-2 mod-icon"></i>
+        <div class="mod-name">Stock</div>
+        <div class="mod-desc">Historial de stock diario con gráfico de consumo real en curvas</div>
+        <div class="mod-tag">INVENTARIO</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+      <div class="module-card mod-required" onclick="openModule('compras')">
+        <i class="ti ti-receipt mod-icon"></i>
+        <div class="mod-name">Compras y Gastos</div>
+        <div class="mod-desc">CMV diario y mensual a partir de compras cargadas manual o por Excel</div>
+        <div class="mod-tag">COSTOS</div>
+        <i class="ti ti-arrow-right mod-arrow"></i>
+      </div>
+    </div>
+    <p style="margin-top:14px;font-size:11px;font-family:var(--font-mono);color:var(--text3)">— MÓDULOS MARCADOS CON "MVP" SON PARTE DEL LANZAMIENTO INICIAL</p>
+  </div>
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-header">
+    <div id="upload-module-badge" class="upload-module-badge"></div>
+    <div id="upload-title" class="upload-title"></div>
+    <div id="upload-sub" class="upload-sub"></div>
+  </div>
+  <div class="upload-body" id="upload-body-content"></div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dashboard-screen">
+  <div class="dash-header">
+    <div>
+      <div id="dash-badge" class="dash-module-badge"></div>
+      <div id="dash-title" class="dash-title"></div>
+    </div>
+    <div id="dash-date" class="dash-date"></div>
+  </div>
+  <div class="dash-body" id="dash-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MODULES = {
+  pedidosya:{
+    name:'PedidosYa',badge:'PEDIDOS YA',
+    types:['Reporte de Ventas (.xlsx / .csv)','Reporte de Demoras (.xlsx / .csv)','Tiempos de Preparación (.xlsx / .csv)'],
+    acceptedExts:'.xlsx,.csv,.xls',
+    hasManual:false,
+    desc:'Subí los reportes exportados desde PedidosYa. Podés subir varios archivos a la vez.',
+  },
+  thinkion:{
+    name:'Thinkion',badge:'POS / THINKION',
+    types:['Ventas por Producto (.xlsx / .xls / .csv)','Reporte General'],
+    acceptedExts:'.xlsx,.xls,.csv',
+    hasManual:false,
+    desc:'Importá el reporte de ventas por producto exportado desde Thinkion.',
+  },
+  fudo:{
+    name:'Fudo',badge:'POS / FUDO',
+    types:['Reporte de Ventas (.xlsx / .csv)'],
+    acceptedExts:'.xlsx,.xls,.csv',
+    hasManual:false,
+    desc:'Importá el reporte exportado desde Fudo.',
+  },
+  maxirest:{
+    name:'Maxirest',badge:'POS / MAXIREST',
+    types:['Reporte de Ventas (.xlsx / .csv)'],
+    acceptedExts:'.xlsx,.xls,.csv',
+    hasManual:false,
+    desc:'Importá el reporte exportado desde Maxirest.',
+  },
+  stock:{
+    name:'Stock del Día',badge:'STOCK',
+    types:['Excel de Stock (.xlsx / .csv)'],
+    acceptedExts:'.xlsx,.xls,.csv',
+    hasManual:true,
+    manualFields:[
+      {label:'PRODUCTO',id:'stock-producto',placeholder:'Ej: Arroz Yamani 5kg',span:2},
+      {label:'CANTIDAD',id:'stock-cantidad',placeholder:'Ej: 12',span:1},
+      {label:'UNIDAD',id:'stock-unidad',placeholder:'Ej: kg / unid',span:1},
+      {label:'FECHA',id:'stock-fecha',type:'date',span:1},
+      {label:'OBSERVACIÓN',id:'stock-obs',placeholder:'Opcional',span:1},
+    ],
+    desc:'Cargá el stock de hoy manualmente o importá un Excel. Se arma historial automático.',
+  },
+  compras:{
+    name:'Compras y Gastos',badge:'CMV / COSTOS',
+    types:['Excel de Compras (.xlsx / .csv)'],
+    acceptedExts:'.xlsx,.xls,.csv',
+    hasManual:true,
+    manualFields:[
+      {label:'PROVEEDOR',id:'c-proveedor',placeholder:'Ej: Makro',span:1},
+      {label:'ÍTEM',id:'c-item',placeholder:'Ej: Aceite girasol',span:1},
+      {label:'MONTO ($)',id:'c-monto',placeholder:'Ej: 15000',span:1},
+      {label:'FECHA',id:'c-fecha',type:'date',span:1},
+      {label:'CATEGORÍA',id:'c-cat',placeholder:'Ej: Insumos / Limpieza',span:2},
+    ],
+    desc:'Registrá compras y gastos para calcular tu CMV diario y mensual automáticamente.',
+  },
+};
+
+let currentModule = null;
+let uploadedFiles = [];
+let sampleData = {};
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+function openModule(modKey){
+  currentModule = modKey;
+  const mod = MODULES[modKey];
+  document.getElementById('home').style.display='none';
+  document.getElementById('dashboard-screen').style.display='none';
+  const us = document.getElementById('upload-screen');
+  us.style.display='block';
+  us.classList.add('fade-in');
+  document.getElementById('upload-module-badge').textContent = mod.badge;
+  document.getElementById('upload-title').textContent = mod.name;
+  document.getElementById('upload-sub').textContent = mod.desc;
+  document.getElementById('nav-back').classList.add('visible');
+  document.getElementById('nav-status').textContent = mod.badge;
+  uploadedFiles = [];
+  renderUploadBody(mod);
+  window.scrollTo(0,0);
+}
+
+function renderUploadBody(mod){
+  const body = document.getElementById('upload-body-content');
+  const typesBadges = mod.types.map(t=>`<span class="type-badge">${t}</span>`).join('');
+
+  let manualHTML = '';
+  if(mod.hasManual){
+    const fields = mod.manualFields.map(f=>`
+      <div class="form-group" style="grid-column:span ${f.span||1}">
+        <label class="form-label" for="${f.id}">${f.label}</label>
+        <input class="form-input" id="${f.id}" type="${f.type||'text'}" placeholder="${f.placeholder||''}">
+      </div>`).join('');
+    manualHTML = `
+      <div class="or-divider">O CARGÁ MANUALMENTE</div>
+      <div class="manual-entry">
+        <div class="manual-title">Ingreso manual · ${mod.name}</div>
+        <div class="manual-grid">${fields}</div>
+        <button class="btn-secondary" onclick="addManualEntry()">
+          <i class="ti ti-plus"></i> Agregar registro
+        </button>
+      </div>`;
+  }
+
+  body.innerHTML = `
+    <div class="upload-zone" id="drop-zone"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <input type="file" accept="${mod.acceptedExts}" multiple onchange="handleFiles(this.files)">
+      <i class="ti ti-cloud-upload upload-zone-icon"></i>
+      <div class="upload-zone-label">Arrastrá archivos o hacé click para seleccionar</div>
+      <div class="upload-zone-hint">Podés subir múltiples archivos a la vez</div>
+      <div class="upload-types">${typesBadges}</div>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    ${manualHTML}
+    <button class="btn-process" id="btn-process" onclick="processData()" disabled>
+      Procesar y ver dashboard &rarr;
+    </button>`;
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files){
+  for(const f of files) uploadedFiles.push(f);
+  renderFileList();
+}
+
+function renderFileList(){
+  const list = document.getElementById('file-list');
+  list.innerHTML = uploadedFiles.map((f,i)=>`
+    <div class="file-item fade-in">
+      <i class="ti ti-file-spreadsheet file-item-icon"></i>
+      <span class="file-item-name">${f.name}</span>
+      <span class="file-item-size">${(f.size/1024).toFixed(0)} KB</span>
+      <button class="file-item-remove" onclick="removeFile(${i})" title="Quitar archivo">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>`).join('');
+  document.getElementById('btn-process').disabled = uploadedFiles.length === 0;
+}
+
+function removeFile(i){
+  uploadedFiles.splice(i,1);
+  renderFileList();
+  showToast('Archivo quitado');
+}
+
+function addManualEntry(){
+  showToast('Registro guardado ✓ (conectá Google Sheets en producción para persistencia)');
+  document.getElementById('btn-process').disabled = false;
+}
+
+function processData(){
+  generateSampleData(currentModule);
+  document.getElementById('upload-screen').style.display='none';
+  const ds = document.getElementById('dashboard-screen');
+  ds.style.display='block';
+  ds.classList.add('fade-in');
+  const mod = MODULES[currentModule];
+  document.getElementById('dash-badge').textContent = mod.badge;
+  document.getElementById('dash-title').textContent = mod.name + ' · Dashboard';
+  const now = new Date();
+  document.getElementById('dash-date').textContent =
+    now.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase()
+    + '\n' + now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  renderDashboard(currentModule);
+  window.scrollTo(0,0);
+}
+
+function generateSampleData(mod){
+  if(mod==='pedidosya'){
+    sampleData={
+      totalVentas:'$847.320',totalPedidos:'143',demora:'18 min',prep:'9 min',cancels:'4',
+      productos:[
+        {name:'Combo Salmón x2',cant:41,monto:'$156.800',estado:'top'},
+        {name:'Roll Crunchy x8',cant:37,monto:'$140.600',estado:'top'},
+        {name:'Bento Box',cant:28,monto:'$103.040',estado:'ok'},
+        {name:'Sake Maki x8',cant:22,monto:'$79.200',estado:'ok'},
+        {name:'Tarta especial',cant:15,monto:'$52.500',estado:'bajo'},
+      ],
+      ventasPorHora:[2,5,8,12,18,22,25,19,14,9,7,4],
+      horas:['11h','12h','13h','14h','15h','16h','17h','18h','19h','20h','21h','22h'],
+    };
+  } else if(mod==='thinkion'){
+    sampleData={
+      totalVentas:'$1.240.800',tickets:'287',ticketProm:'$4.325',
+      productos:[
+        {name:'Rolls premium',cant:89,monto:'$312.000',cat:'Rolls'},
+        {name:'Combos ejecutivo',cant:74,monto:'$259.000',cat:'Combos'},
+        {name:'Sashimi variado',cant:51,monto:'$204.000',cat:'Pescados'},
+        {name:'Bebidas c/alcohol',cant:44,monto:'$132.000',cat:'Bebidas'},
+        {name:'Postres',cant:29,monto:'$87.000',cat:'Postres'},
+      ],
+      catData:[312,259,204,132,87],
+      catLabels:['Rolls','Combos','Pescados','Bebidas','Postres'],
+    };
+  } else if(mod==='stock'){
+    sampleData={
+      items:[
+        {name:'Arroz Yamani 5kg',actual:8,inicial:20,unidad:'kg'},
+        {name:'Salmón fresco',actual:3.5,inicial:12,unidad:'kg'},
+        {name:'Alga Nori',actual:45,inicial:100,unidad:'hojas'},
+        {name:'Palta',actual:18,inicial:40,unidad:'unid'},
+        {name:'Queso crema',actual:6,inicial:15,unidad:'kg'},
+        {name:'Sésamo',actual:1.2,inicial:4,unidad:'kg'},
+      ],
+      historial:[
+        {fecha:'26/05',consumo:14},{fecha:'27/05',consumo:18},{fecha:'28/05',consumo:12},
+        {fecha:'29/05',consumo:22},{fecha:'30/05',consumo:19},{fecha:'31/05',consumo:16},
+      ],
+    };
+  } else if(mod==='compras'){
+    sampleData={
+      cmvMes:'$284.500',cmvDia:'$11.380',cmvPct:'28.4%',
+      compras:[
+        {fecha:'31/05',proveedor:'Makro',item:'Aceite girasol',monto:'$18.400',cat:'Insumos'},
+        {fecha:'30/05',proveedor:'FishMarket',item:'Salmón 5kg',monto:'$42.000',cat:'Pescados'},
+        {fecha:'29/05',proveedor:'Distribuidora Norte',item:'Arroz x10',monto:'$15.200',cat:'Insumos'},
+        {fecha:'28/05',proveedor:'Coca-Cola',item:'Pack bebidas',monto:'$22.800',cat:'Bebidas'},
+        {fecha:'27/05',proveedor:'Limpieza SA',item:'Detergente + desinfectante',monto:'$8.600',cat:'Limpieza'},
+      ],
+      porCategoria:[
+        {cat:'Insumos',monto:112000,pct:39},
+        {cat:'Pescados',monto:84000,pct:30},
+        {cat:'Bebidas',monto:51000,pct:18},
+        {cat:'Limpieza',monto:37500,pct:13},
+      ],
+    };
+  }
+}
+
+function destroyCharts(){
+  Object.values(Chart.instances).forEach(c=>c.destroy());
+}
+
+function renderDashboard(mod){
+  destroyCharts();
+  const c = document.getElementById('dash-content');
+  c.innerHTML='';
+  if(mod==='pedidosya') renderPedidosYa(c);
+  else if(mod==='thinkion') renderThinkion(c);
+  else if(mod==='stock') renderStock(c);
+  else if(mod==='compras') renderCompras(c);
+  else {
+    c.innerHTML=`<div style="text-align:center;padding:80px 20px;color:var(--text3)">
+      <i class="ti ti-clock" style="font-size:40px;display:block;margin-bottom:16px"></i>
+      <div style="font-family:var(--font-mono);font-size:13px;letter-spacing:1px">MÓDULO EN CONSTRUCCIÓN</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:8px">Dashboard de ${MODULES[mod].name} disponible en la próxima versión</div>
+    </div>`;
+  }
+}
+
+function renderPedidosYa(c){
+  const d=sampleData;
+  c.innerHTML=`
+    <div class="metrics-row fade-in">
+      <div class="metric-card">
+        <div class="metric-label">VENTAS TOTALES</div>
+        <div class="metric-value" style="color:var(--amber)">${d.totalVentas}</div>
+        <div class="metric-change up">↑ 12% vs semana anterior</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PEDIDOS</div>
+        <div class="metric-value">${d.totalPedidos}</div>
+        <div class="metric-change up">↑ 8 pedidos</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">DEMORA PROM.</div>
+        <div class="metric-value" style="color:${parseInt(d.demora)>20?'var(--red)':'var(--green)'}">${d.demora}</div>
+        <div class="metric-change ${parseInt(d.demora)>20?'down':'up'}">${parseInt(d.demora)>20?'↑ por encima del objetivo':'↓ dentro del objetivo'}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">T. PREPARACIÓN</div>
+        <div class="metric-value">${d.prep}</div>
+        <div class="metric-change up">↓ 2 min vs ayer</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">CANCELACIONES</div>
+        <div class="metric-value" style="color:var(--red)">${d.cancels}</div>
+        <div class="metric-change down">↑ 1 vs ayer</div>
+      </div>
+    </div>
+    <div class="chart-panel fade-in">
+      <div class="chart-header">
+        <span class="chart-title">VENTAS POR HORA DEL DÍA</span>
+        <div class="chart-tabs">
+          <button class="chart-tab active">HOY</button>
+          <button class="chart-tab">SEMANA</button>
+        </div>
+      </div>
+      <div style="position:relative;height:240px">
+        <canvas id="chart-hora" role="img" aria-label="Ventas por hora del día"></canvas>
+      </div>
+    </div>
+    <div class="chart-panel fade-in">
+      <div class="chart-header"><span class="chart-title">PRODUCTOS MÁS VENDIDOS</span></div>
+      <table class="data-table">
+        <thead><tr><th>PRODUCTO</th><th>PEDIDOS</th><th>FACTURACIÓN</th><th>ESTADO</th></tr></thead>
+        <tbody>${d.productos.map(p=>`
+          <tr>
+            <td style="color:var(--text)">${p.name}</td>
+            <td style="font-family:var(--font-mono)">${p.cant}</td>
+            <td style="font-family:var(--font-mono);color:var(--amber)">${p.monto}</td>
+            <td><span class="badge ${p.estado==='top'?'badge-green':p.estado==='ok'?'badge-amber':'badge-red'}">${p.estado.toUpperCase()}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  setTimeout(()=>{
+    new Chart(document.getElementById('chart-hora'),{
+      type:'line',
+      data:{
+        labels:d.horas,
+        datasets:[{
+          label:'Pedidos',data:d.ventasPorHora,
+          borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.07)',
+          tension:0.4,fill:true,pointBackgroundColor:'#f59e0b',pointRadius:4,borderWidth:2
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'}}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'}}}
+        }
+      }
+    });
+  },80);
+}
+
+function renderThinkion(c){
+  const d=sampleData;
+  c.innerHTML=`
+    <div class="metrics-row fade-in">
+      <div class="metric-card">
+        <div class="metric-label">VENTAS TOTALES</div>
+        <div class="metric-value" style="color:var(--amber)">${d.totalVentas}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">TICKETS</div>
+        <div class="metric-value">${d.tickets}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">TICKET PROMEDIO</div>
+        <div class="metric-value">${d.ticketProm}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="chart-panel fade-in">
+        <div class="chart-header"><span class="chart-title">VENTAS POR CATEGORÍA</span></div>
+        <div style="position:relative;height:260px">
+          <canvas id="chart-cat" role="img" aria-label="Ventas por categoría"></canvas>
+        </div>
+      </div>
+      <div class="chart-panel fade-in">
+        <div class="chart-header"><span class="chart-title">TOP PRODUCTOS</span></div>
+        <table class="data-table">
+          <thead><tr><th>PRODUCTO</th><th>CANT</th><th>TOTAL</th></tr></thead>
+          <tbody>${d.productos.map(p=>`
+            <tr>
+              <td style="color:var(--text);font-size:12px">${p.name}</td>
+              <td style="font-family:var(--font-mono)">${p.cant}</td>
+              <td style="font-family:var(--font-mono);color:var(--amber)">${(p.monto/1000).toFixed(0)}k</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  setTimeout(()=>{
+    new Chart(document.getElementById('chart-cat'),{
+      type:'doughnut',
+      data:{
+        labels:d.catLabels,
+        datasets:[{data:d.catData,backgroundColor:['#f59e0b','#3b82f6','#22c55e','#a78bfa','#fb7185'],borderWidth:0,hoverOffset:8}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'bottom',labels:{color:'#6b6865',font:{size:11,family:'Space Mono'},boxWidth:10,padding:16}}},
+        cutout:'62%'
+      }
+    });
+  },80);
+}
+
+function renderStock(c){
+  const d=sampleData;
+  const stockRows = d.items.map(item=>{
+    const pct = Math.round((item.actual/item.inicial)*100);
+    const col = pct<30?'var(--red)':pct<60?'var(--amber)':'var(--green)';
+    const estado = pct<30?'CRÍTICO':pct<60?'BAJO':'OK';
+    const badgeCls = pct<30?'badge-red':pct<60?'badge-amber':'badge-green';
+    return `<div class="stock-row">
+      <div class="stock-name">${item.name}</div>
+      <div>
+        <div class="stock-bar-wrap"><div class="stock-bar" style="width:${pct}%;background:${col}"></div></div>
+        <div class="stock-meta">${item.actual} / ${item.inicial} ${item.unidad} · ${pct}%</div>
+      </div>
+      <div style="text-align:right"><span class="badge ${badgeCls}">${estado}</span></div>
+    </div>`;
+  }).join('');
+
+  c.innerHTML=`
+    <div class="metrics-row fade-in">
+      <div class="metric-card"><div class="metric-label">ÍTEMS TOTALES</div><div class="metric-value">${d.items.length}</div></div>
+      <div class="metric-card"><div class="metric-label">CRÍTICOS</div><div class="metric-value" style="color:var(--red)">${d.items.filter(i=>Math.round((i.actual/i.inicial)*100)<30).length}</div></div>
+      <div class="metric-card"><div class="metric-label">STOCK BAJO</div><div class="metric-value" style="color:var(--amber)">${d.items.filter(i=>{const p=Math.round((i.actual/i.inicial)*100);return p>=30&&p<60}).length}</div></div>
+      <div class="metric-card"><div class="metric-label">NIVEL OK</div><div class="metric-value" style="color:var(--green)">${d.items.filter(i=>Math.round((i.actual/i.inicial)*100)>=60).length}</div></div>
+    </div>
+    <div class="chart-panel fade-in">
+      <div class="chart-header"><span class="chart-title">CONSUMO REAL · ÚLTIMOS 6 DÍAS</span></div>
+      <div style="position:relative;height:220px">
+        <canvas id="chart-stock" role="img" aria-label="Historial de consumo de stock"></canvas>
+      </div>
+    </div>
+    <div class="chart-panel fade-in">
+      <div class="chart-header"><span class="chart-title">STOCK ACTUAL POR ÍTEM</span></div>
+      ${stockRows}
+    </div>`;
+  setTimeout(()=>{
+    new Chart(document.getElementById('chart-stock'),{
+      type:'line',
+      data:{
+        labels:d.historial.map(h=>h.fecha),
+        datasets:[{
+          label:'Consumo',data:d.historial.map(h=>h.consumo),
+          borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',
+          tension:0.4,fill:true,pointBackgroundColor:'#f59e0b',pointRadius:5,borderWidth:2
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'}}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'}}}
+        }
+      }
+    });
+  },80);
+}
+
+function renderCompras(c){
+  const d=sampleData;
+  c.innerHTML=`
+    <div class="metrics-row fade-in">
+      <div class="metric-card">
+        <div class="metric-label">CMV DEL MES</div>
+        <div class="metric-value" style="color:var(--amber)">${d.cmvMes}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">CMV PROMEDIO / DÍA</div>
+        <div class="metric-value">${d.cmvDia}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">CMV / VENTAS</div>
+        <div class="metric-value" style="color:${parseFloat(d.cmvPct)>30?'var(--red)':'var(--green)'}">${d.cmvPct}</div>
+        <div class="metric-change ${parseFloat(d.cmvPct)>30?'down':'up'}">${parseFloat(d.cmvPct)>30?'↑ por encima del 30%':'↓ bajo el 30% — excelente'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="chart-panel fade-in">
+        <div class="chart-header"><span class="chart-title">GASTO POR CATEGORÍA</span></div>
+        <div style="position:relative;height:220px">
+          <canvas id="chart-cmv" role="img" aria-label="Gasto por categoría"></canvas>
+        </div>
+      </div>
+      <div class="chart-panel fade-in">
+        <div class="chart-header"><span class="chart-title">DISTRIBUCIÓN %</span></div>
+        <div style="padding-top:8px">
+          ${d.porCategoria.map(cat=>`
+            <div style="margin-bottom:18px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:12px;color:var(--text2)">${cat.cat}</span>
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${cat.pct}%</span>
+              </div>
+              <div class="stock-bar-wrap">
+                <div class="stock-bar" style="width:${cat.pct}%;background:var(--amber)"></div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="chart-panel fade-in">
+      <div class="chart-header"><span class="chart-title">ÚLTIMAS COMPRAS REGISTRADAS</span></div>
+      <table class="data-table">
+        <thead><tr><th>FECHA</th><th>PROVEEDOR</th><th>ÍTEM</th><th>CATEGORÍA</th><th>MONTO</th></tr></thead>
+        <tbody>${d.compras.map(cp=>`
+          <tr>
+            <td style="font-family:var(--font-mono);color:var(--text3)">${cp.fecha}</td>
+            <td style="color:var(--text)">${cp.proveedor}</td>
+            <td style="color:var(--text2)">${cp.item}</td>
+            <td><span class="badge badge-amber">${cp.cat}</span></td>
+            <td style="font-family:var(--font-mono);color:var(--amber)">${cp.monto}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  setTimeout(()=>{
+    new Chart(document.getElementById('chart-cmv'),{
+      type:'bar',
+      data:{
+        labels:d.porCategoria.map(c=>c.cat),
+        datasets:[{
+          data:d.porCategoria.map(c=>c.monto),
+          backgroundColor:['rgba(245,158,11,0.75)','rgba(59,130,246,0.75)','rgba(34,197,94,0.75)','rgba(167,139,250,0.75)'],
+          borderWidth:0,borderRadius:4
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'}}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6865',font:{size:11,family:'Space Mono'},callback:v=>'$'+(v/1000).toFixed(0)+'k'}}
+        }
+      }
+    });
+  },80);
+}
+
+function goBack(){
+  destroyCharts();
+  document.getElementById('dashboard-screen').style.display='none';
+  document.getElementById('upload-screen').style.display='none';
+  const home = document.getElementById('home');
+  home.style.display='block';
+  home.classList.add('fade-in');
+  document.getElementById('nav-back').classList.remove('visible');
+  document.getElementById('nav-status').textContent='SISTEMA OPERATIVO';
+  uploadedFiles=[];
+  currentModule=null;
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
